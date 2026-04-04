@@ -136,14 +136,66 @@ body.dark-mode .visual-box {
 
 <div class="card-custom mt-2">
 
-<label>Tempo: <span id="bpmDisplay">120</span> BPM | Interval: <span id="intervalDisplay">500</span> ms</label>
+<div class="mb-4">
+    <label><strong>Tempo:</strong> <span id="bpmDisplay">120</span> BPM | Interval: <span id="intervalDisplay">500</span> ms</label>
+    <input type="range" id="tempoBpm" min="40" max="200" value="120" oninput="updateBPM(this)">
+    <small class="d-block mt-2" style="color: #6c757d;">Adjust the speed of the metronome</small>
+</div>
 
-<input type="range" id="tempoBpm" min="40" max="200" value="120" oninput="updateBPM(this)">
+<hr>
 
-<br>
+<h5 class="mb-3"><i class="fas fa-sliders-h"></i> Metronome Settings</h5>
 
-<button class="btn btn-success mt-3" onclick="toggleMetronome()">
-Start / Stop
+<div class="row mt-3 g-3">
+    <div class="col-md-6">
+        <label for="timeSignature" class="form-label"><strong>Time Signature:</strong></label>
+        <select id="timeSignature" class="form-select" onchange="updateTimeSignature(this)">
+            <option value="2/4">2/4 - Two beats per measure</option>
+            <option value="3/4">3/4 - Waltz time</option>
+            <option value="4/4" selected>4/4 - Common time</option>
+            <option value="5/4">5/4 - Five beats per measure</option>
+            <option value="6/8">6/8 - Six eighth notes per measure</option>
+            <option value="7/8">7/8 - Seven beats per measure</option>
+        </select>
+        <small class="d-block mt-2" style="color: #6c757d;">Sets how many beats are in each measure</small>
+    </div>
+    
+    <div class="col-md-6">
+        <label for="subdivision" class="form-label"><strong>Subdivision:</strong></label>
+        <select id="subdivision" class="form-select" onchange="updateSubdivision(this)">
+            <option value="1">Whole Notes - 1 click per beat</option>
+            <option value="2">Half Notes - 2 clicks per beat</option>
+            <option value="4" selected>Quarter Notes - 4 clicks per beat</option>
+            <option value="8">Eighth Notes - 8 clicks per beat</option>
+            <option value="16">Sixteenth Notes - 16 clicks per beat</option>
+        </select>
+        <small class="d-block mt-2" style="color: #6c757d;">Divides each beat into smaller intervals</small>
+    </div>
+</div>
+
+<div class="row mt-3 g-3">
+    <div class="col-md-6">
+        <label class="form-label"><strong>First Beat Accent:</strong></label>
+        <div class="form-check form-switch mt-2 d-flex justify-content-center">
+            <input class="form-check-input" type="checkbox" id="accentToggle" checked onchange="updateAccent(this)">
+            <label class="form-check-label ms-2" for="accentToggle">
+                <span id="accentStatus" style="font-weight: bold;">ON</span>
+            </label>
+        </div>
+        <small class="d-block mt-2" style="color: #6c757d;">Emphasizes the first beat of each measure</small>
+    </div>
+    
+    <div class="col-md-6">
+        <label class="form-label"><strong>Status:</strong></label>
+        <p style="font-size: 1.1em; font-weight: bold; margin-top: 0.5rem;">
+            <span id="statusDisplay" style="color: #6c757d;">Ready to play</span>
+        </p>
+        <small class="d-block mt-2" style="color: #6c757d;">Current metronome state</small>
+    </div>
+</div>
+
+<button class="btn btn-success btn-lg mt-4" style="width: 100%; max-width: 300px;" onclick="toggleMetronome()">
+<span id="playBtnText">Start</span> / Stop
 </button>
 
 </div>
@@ -154,11 +206,13 @@ Start / Stop
 <div class="visual-item text-center visual-box">
 <h3><i class="fas fa-eye"></i> Beat Indicator</h3>
 <div id="beat-visual" class="beat-circle"></div>
+<p class="mt-2"><strong>Beat: <span id="beatPosition">-</span></strong></p>
 </div>
 <div class="visual-item text-center visual-box">
 <h3><i class="fas fa-stopwatch"></i> Beat Timer</h3>
 <p>Interval per Beat:</p>
 <p><span id="intervalDisplay2" style="font-size: 2em; font-weight: bold;">500</span> ms</p>
+<p style="font-size: 0.9em; color: #6c757d;">Time Signature: <strong><span id="timeSigDisplay">4/4</span></strong></p>
 </div>
 </div>
 </section>
@@ -168,19 +222,39 @@ const tempoInput = document.getElementById("tempoBpm");
 const bpmDisplay = document.getElementById("bpmDisplay");
 const intervalDisplay = document.getElementById("intervalDisplay");
 const intervalDisplay2 = document.getElementById("intervalDisplay2");
+const timeSignatureSelect = document.getElementById("timeSignature");
+const subdivisionSelect = document.getElementById("subdivision");
+const accentToggle = document.getElementById("accentToggle");
 
 let intervalId = null;
 let isPlaying = false;
+let beatCount = 0;
+let timeSignature = "4/4";
+let subdivision = 4;
+let accentEnabled = true;
+let beatsPerMeasure = 4;
 
 const clickSound = new Audio("metronome.mp3");
+const accentClickSound = new Audio("metronome.mp3");
 clickSound.volume = 1.0;
 clickSound.preload = "auto";
+accentClickSound.volume = 1.0;
+accentClickSound.preload = "auto";
 
 /* ===== METRONOME PLAYBACK ===== */
-function playClick() {
+function playClick(isAccent = false) {
     try {
-        clickSound.currentTime = 0;
-        clickSound.play().catch(error => {
+        const sound = isAccent ? accentClickSound : clickSound;
+        sound.currentTime = 0;
+        
+        // If accent is enabled and this is an accented beat, increase volume
+        if (accentEnabled && isAccent) {
+            sound.volume = 1.0;
+        } else {
+            sound.volume = 0.7;
+        }
+        
+        sound.play().catch(error => {
             console.log("Audio play failed:", error);
         });
     } catch (error) {
@@ -200,6 +274,41 @@ function updateBPM(el) {
     }
 }
 
+/* ===== TIME SIGNATURE ===== */
+function updateTimeSignature(el) {
+    timeSignature = el.value;
+    const [beats] = timeSignature.split('/');
+    beatsPerMeasure = parseInt(beats);
+    beatCount = 0;
+    document.getElementById("timeSigDisplay").textContent = timeSignature;
+}
+
+/* ===== SUBDIVISION ===== */
+function updateSubdivision(el) {
+    subdivision = parseInt(el.value);
+    if (isPlaying) {
+        restartMetronome();
+    }
+}
+
+/* ===== ACCENT TOGGLE ===== */
+function updateAccent(el) {
+    accentEnabled = el.checked;
+    document.getElementById("accentStatus").textContent = accentEnabled ? "ON" : "OFF";
+}
+
+/* ===== STATUS DISPLAY ===== */
+function updateStatusDisplay() {
+    const statusDisplay = document.getElementById("statusDisplay");
+    if (isPlaying) {
+        statusDisplay.textContent = "▶ Playing";
+        statusDisplay.style.color = "#28a745";
+    } else {
+        statusDisplay.textContent = "Ready to play";
+        statusDisplay.style.color = "#6c757d";
+    }
+}
+
 /* ===== METRONOME CONTROL ===== */
 function toggleMetronome() {
     if (!isPlaying) {
@@ -211,16 +320,27 @@ function toggleMetronome() {
 
 function startMetronome() {
     let bpm = tempoInput.value;
-    let interval = 60000 / bpm;
+    let beatInterval = 60000 / bpm;
+    let subdivisionInterval = beatInterval / subdivision;
+    beatCount = 0;
+    updateStatusDisplay();
 
     intervalId = setInterval(() => {
-        playClick();
+        // Determine if this is an accented beat (first subdivision of a measure)
+        const isAccent = accentEnabled && (beatCount % (beatsPerMeasure * subdivision) === 0);
+        playClick(isAccent);
 
         // VISUAL FLASH
         const beatVisual = document.getElementById("beat-visual");
         beatVisual.classList.add("flash");
         setTimeout(() => beatVisual.classList.remove("flash"), 100);
-    }, interval);
+        
+        // Update beat position display
+        const beatInMeasure = Math.floor((beatCount % (beatsPerMeasure * subdivision)) / subdivision) + 1;
+        document.getElementById("beatPosition").textContent = beatInMeasure + " / " + beatsPerMeasure;
+        
+        beatCount++;
+    }, subdivisionInterval);
 
     isPlaying = true;
 }
@@ -228,6 +348,9 @@ function startMetronome() {
 function stopMetronome() {
     clearInterval(intervalId);
     isPlaying = false;
+    beatCount = 0;
+    document.getElementById("beatPosition").textContent = "-";
+    updateStatusDisplay();
 }
 
 function restartMetronome() {
