@@ -247,13 +247,13 @@ accentClickSound.volume = 1.0;
 accentClickSound.preload = "auto";
 
 /* ===== METRONOME PLAYBACK ===== */
-function playClick(isAccent = false) {
+function playClick(isMainBeat = false, isAccent = false) {
     try {
-        const sound = isAccent ? accentClickSound : clickSound;
+        const sound = isMainBeat ? accentClickSound : clickSound;
         sound.currentTime = 0;
         
         // If accent is enabled and this is an accented beat, increase volume
-        if (accentEnabled && isAccent) {
+        if (isAccent && accentEnabled) {
             sound.volume = 1.0;
         } else {
             sound.volume = 0.7;
@@ -331,12 +331,14 @@ function startMetronome() {
     updateStatusDisplay();
 
     intervalId = setInterval(() => {
-        // Determine if this is an accented beat (first subdivision of a measure)
+        // Determine if this is a main beat (start of each beat)
+        const isMainBeat = beatCount % subdivision === 0;
+        // Determine if this is an accented beat (first beat of measure)
         const isAccent = accentEnabled && (beatCount % (beatsPerMeasure * subdivision) === 0);
-        playClick(isAccent);
+        playClick(isMainBeat, isAccent);
 
         // VISUAL FLASH - separate indicators for main and secondary beats
-        if (isAccent) {
+        if (isMainBeat) {
             const beatVisualMain = document.getElementById("beat-visual-main");
             beatVisualMain.classList.add("flash");
             setTimeout(() => beatVisualMain.classList.remove("flash"), 100);
