@@ -204,9 +204,14 @@ body.dark-mode .visual-box {
 <section class="p-3">
 <div class="visual-container">
 <div class="visual-item text-center visual-box">
-<h3><i class="fas fa-eye"></i> Beat Indicator</h3>
-<div id="beat-visual" class="beat-circle"></div>
+<h3><i class="fas fa-drumstick-bite"></i> Main Beat</h3>
+<div id="beat-visual-main" class="beat-circle" style="background-color: #28a745;"></div>
 <p class="mt-2"><strong>Beat: <span id="beatPosition">-</span></strong></p>
+</div>
+<div class="visual-item text-center visual-box">
+<h3><i class="fas fa-circle-notch"></i> Secondary Beat</h3>
+<div id="beat-visual-secondary" class="beat-circle" style="background-color: #6c757d;"></div>
+<p class="mt-2"><strong>Sub-beat: <span id="subBeatPosition">-</span></strong></p>
 </div>
 <div class="visual-item text-center visual-box">
 <h3><i class="fas fa-stopwatch"></i> Beat Timer</h3>
@@ -234,8 +239,8 @@ let subdivision = 4;
 let accentEnabled = true;
 let beatsPerMeasure = 4;
 
-const clickSound = new Audio("metronome.mp3");
-const accentClickSound = new Audio("metronome.mp3");
+const clickSound = new Audio("lowmetronome.wav");
+const accentClickSound = new Audio("metronome.wav");
 clickSound.volume = 1.0;
 clickSound.preload = "auto";
 accentClickSound.volume = 1.0;
@@ -330,14 +335,24 @@ function startMetronome() {
         const isAccent = accentEnabled && (beatCount % (beatsPerMeasure * subdivision) === 0);
         playClick(isAccent);
 
-        // VISUAL FLASH
-        const beatVisual = document.getElementById("beat-visual");
-        beatVisual.classList.add("flash");
-        setTimeout(() => beatVisual.classList.remove("flash"), 100);
+        // VISUAL FLASH - separate indicators for main and secondary beats
+        if (isAccent) {
+            const beatVisualMain = document.getElementById("beat-visual-main");
+            beatVisualMain.classList.add("flash");
+            setTimeout(() => beatVisualMain.classList.remove("flash"), 100);
+        } else {
+            const beatVisualSecondary = document.getElementById("beat-visual-secondary");
+            beatVisualSecondary.classList.add("flash");
+            setTimeout(() => beatVisualSecondary.classList.remove("flash"), 100);
+        }
         
         // Update beat position display
         const beatInMeasure = Math.floor((beatCount % (beatsPerMeasure * subdivision)) / subdivision) + 1;
         document.getElementById("beatPosition").textContent = beatInMeasure + " / " + beatsPerMeasure;
+        
+        // Update sub-beat position (subdivision within the beat)
+        const subBeatInBeat = (beatCount % subdivision) + 1;
+        document.getElementById("subBeatPosition").textContent = subBeatInBeat + " / " + subdivision;
         
         beatCount++;
     }, subdivisionInterval);
@@ -350,6 +365,7 @@ function stopMetronome() {
     isPlaying = false;
     beatCount = 0;
     document.getElementById("beatPosition").textContent = "-";
+    document.getElementById("subBeatPosition").textContent = "-";
     updateStatusDisplay();
 }
 
